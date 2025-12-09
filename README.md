@@ -143,7 +143,6 @@ backend/
 │   ├── utils/            # Yardımcı fonksiyonlar
 │   ├── app.js            # Express uygulaması
 │   └── server.js         # Sunucu başlatma
-├── uploads/              # Yüklenen dosyalar
 ├── Dockerfile
 └── package.json
 ```

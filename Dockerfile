@@ -7,7 +7,6 @@ COPY config ./config
 COPY migrations ./migrations
 COPY models ./models
 COPY seeders ./seeders
-COPY uploads ./uploads
 ENV NODE_ENV=production
 EXPOSE 5000
 CMD ["node", "src/server.js"]

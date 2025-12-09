@@ -1,8 +1,8 @@
 const { Router } = require('express');
 const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { Op } = require('sequelize');
 const authController = require('../controllers/authController');
 const authService = require('../services/authService');
@@ -14,8 +14,36 @@ const { User, Student, Faculty, Department } = db;
 
 const router = Router();
 
+/* -------------------------------------------------------
+   ☁️ CLOUDINARY YAPILANDIRMASI
+------------------------------------------------------- */
+// .env dosyasındaki bilgileri alıp Cloudinary'yi başlatıyoruz
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Multer için Cloudinary deposunu ayarlıyoruz
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'smart-campus-profiles', // Cloudinary'de bu isimde bir klasör açar
+    allowed_formats: ['jpg', 'png', 'jpeg'], // Sadece resimlere izin ver
+    transformation: [{ width: 500, height: 500, crop: 'limit' }], // (İsteğe bağlı) Resmi kare yapar ve optimize eder
+  },
+});
+
+const upload = multer({ storage: storage });
+
+/* -------------------------------------------------------
+   👤 KULLANICI ROTALARI
+------------------------------------------------------- */
+
+// Profil Bilgilerini Getir
 router.get('/me', authenticate, authController.getProfile);
 
+// Profil Bilgilerini Güncelle (İsim, Telefon)
 router.put('/me', authenticate, async (req, res, next) => {
   try {
     const { fullName, phone } = req.body;
@@ -35,6 +63,7 @@ router.put('/me', authenticate, async (req, res, next) => {
   }
 });
 
+// Şifre Değiştir
 router.post('/me/change-password', authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -56,77 +85,32 @@ router.post('/me/change-password', authenticate, async (req, res, next) => {
   }
 });
 
-const uploadDir = path.join(process.cwd(), 'backend', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// MIME tipine göre dosya uzantısını belirleyen yardımcı fonksiyon
-const getFileExtension = (mimetype) => {
-  switch (mimetype) {
-    case 'image/jpeg':
-    case 'image/jpg':
-      return '.jpg';
-    case 'image/png':
-      return '.png';
-    default:
-      return ''; 
-  }
-};
-
-
-const upload = multer({
-  dest: uploadDir,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.mimetype)) {
-      return cb(new ValidationError('Only jpg and png files are allowed'));
-    }
-    cb(null, true);
-  },
-});
-
+/* -------------------------------------------------------
+   🖼️ PROFİL FOTOĞRAFI YÜKLEME (CLOUDINARY)
+------------------------------------------------------- */
 router.post('/me/profile-picture', authenticate, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       throw new ValidationError('File is required');
     }
 
-    // 1. Dosya uzantısını belirle ve dosyayı yeniden adlandır
-    const oldPath = req.file.path;
-    const extension = getFileExtension(req.file.mimetype);
-    const newFilename = req.file.filename + extension;
-    const newPath = path.join(uploadDir, newFilename);
+    // Cloudinary yüklemeyi tamamlayınca dosya bilgilerini req.file içine koyar.
+    // req.file.path -> Cloudinary'deki resmin direkt URL'idir (https://res.cloudinary.com/...)
+    const imageUrl = req.file.path;
 
-    // Dosyayı uzantısıyla birlikte yeniden adlandır
-    fs.renameSync(oldPath, newPath);
-
-    // 2. Eğer daha önce bir profil fotoğrafı varsa, diskten sil
-    if (req.user.profilePictureUrl) {
-      const oldFilename = req.user.profilePictureUrl.split('/').pop();
-      const oldFilePath = path.join(uploadDir, oldFilename);
-      
-      // Dosyanın varlığını kontrol et ve sil (yeni dosya adıyla aynı olmadığından emin ol)
-      if (fs.existsSync(oldFilePath) && oldFilename !== newFilename) {
-        fs.unlinkSync(oldFilePath);
-      }
-    }
-
-    // 3. Veritabanı kaydını güncelle
-    const relativePath = `/uploads/${newFilename}`;
-    req.user.profilePictureUrl = relativePath;
+    // Veritabanını güncelle
+    req.user.profilePictureUrl = imageUrl;
     await req.user.save();
 
-    res.json({ avatarUrl: relativePath });
+    res.json({ avatarUrl: imageUrl });
   } catch (error) {
-    // Hata durumunda yüklenen dosyayı silmek iyi bir uygulamadır
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path); 
-    }
     next(error);
   }
 });
 
+/* -------------------------------------------------------
+   👑 ADMİN ROTALARI (Kullanıcı Listeleme)
+------------------------------------------------------- */
 router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, role, department, search } = req.query;

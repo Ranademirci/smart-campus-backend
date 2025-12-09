@@ -4,8 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const routes = require('./routes');
-const path = require('path');
-const fs = require('fs');
 
 const app = express();
 
@@ -28,28 +26,6 @@ app.use(
 );
 
 app.use(morgan('dev'));
-
-/* -------------------------------
-   📌 UPLOADS KLASÖRÜ HATA AYIKLAMA
---------------------------------- */
-
-const UPLOADS_PATH = path.join(__dirname, '../uploads');
-
-console.log('-----------------------------------------');
-console.log('🧪 Statik dosya servis yolu ayarlanıyor...');
-console.log('📁 __dirname:', __dirname);
-console.log('📁 Servis edilen uploads klasörü:', UPLOADS_PATH);
-
-// Klasör var mı kontrol edelim
-if (!fs.existsSync(UPLOADS_PATH)) {
-  console.error('❌ UPLOADS_PATH bulunamadı! Yol yanlış olabilir.');
-} else {
-  console.log('✅ UPLOADS_PATH bulundu, statik olarak servis ediliyor.');
-}
-console.log('-----------------------------------------');
-
-app.use('/uploads', express.static(UPLOADS_PATH));
-
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Backend API çalışıyor!' });

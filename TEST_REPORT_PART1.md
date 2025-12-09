@@ -77,7 +77,7 @@ Bu rapor, Part 1 kapsamındaki authentication ve user management endpoint'lerini
 - ✅ **Başarılı Yükleme:** JPG/PNG formatında dosya yüklenebiliyor
 - ✅ **Dosya Tipi Kontrolü:** Sadece JPG ve PNG kabul ediliyor
 - ✅ **Dosya Boyutu:** Maksimum 5MB boyut sınırı kontrol ediliyor
-- ✅ **Dosya Kaydı:** Yüklenen dosya `uploads` klasörüne kaydediliyor
+- ✅ **Dosya Kaydı:** Yüklenen dosya Cloudinary'ye kaydediliyor
 - ✅ **URL Döndürme:** Profil fotoğrafı URL'i response'da döndürülüyor
 
 #### 2.5 Kullanıcı Listesi (GET /users) - Admin
